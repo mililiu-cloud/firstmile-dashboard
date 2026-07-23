@@ -161,7 +161,14 @@ const WARN_BADGE = {'正常':'badge-ok','超时未达标':'badge-red','到仓延
 
 function esc(s) { s = String(s||''); return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
 function parseFactoryDate(v) { if(!v) return null; const d = String(v).slice(0,10); return d; }
+// "未提货" rows (eccang STPO not yet shipped, or FBA plans not yet dispatched to any
+// forwarder) are shown in the table for visibility but per business request (2026-07-23)
+// do NOT count toward 预警/黑色预警 stats or tabs -- they aren't a real transit problem,
+// just a pending-order status.
+const PENDING_SOURCES = new Set(['eccang_unshipped', 'lingxing_pending']);
+function isPending(r) { return PENDING_SOURCES.has(r['_sp_source']); }
 function groupOf(r) {
+  if (isPending(r)) return 'normal';
   if (NOT_SIGNED.has(r['预警'])) return 'a';
   if (SIGNED_OVERDUE.has(r['预警'])) return 'b';
   return 'normal';
@@ -217,9 +224,9 @@ function renderTable(rows) {
 
 function renderKPI(rows) {
   const total = rows.length;
-  const warnRows = rows.filter(r => r['预警'] !== '正常');
+  const warnRows = rows.filter(r => r['预警'] !== '正常' && !isPending(r));
   const normal = total - warnRows.length;
-  const black = rows.filter(r => r['黑色预警']).length;
+  const black = rows.filter(r => r['黑色预警'] && !isPending(r)).length;
   document.getElementById('kpiTotal').textContent = total;
   document.getElementById('kpiNormal').textContent = normal;
   document.getElementById('kpiWarn').textContent = warnRows.length;
