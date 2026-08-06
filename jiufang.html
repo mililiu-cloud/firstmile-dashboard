@@ -42,7 +42,7 @@
   table.data { border-collapse:separate; border-spacing:0; width:100%; font-size:12.5px; white-space:nowrap; }
   table.data thead th { position:sticky; top:0; background:var(--navy); color:rgba(243,237,226,.88); font-weight:600; text-align:left; padding:12px 16px; letter-spacing:.3px; z-index:3; font-size:11px; text-transform:uppercase; cursor:pointer; user-select:none; }
   table.data thead th:hover { color:var(--gold-light); }
-  table.data tbody td { padding:10px 16px; border-bottom:1px solid #f0efea; color:var(--ink); background:var(--card); }
+  table.data tbody td { padding:10px 16px; border-bottom:1px solid #f0efea; color:var(--ink); background:var(--card); vertical-align:top; }
   table.data tbody tr:hover td { background:#faf7f1; }
   /* freeze first 4 columns (运单号/国家/运输方式/物流渠道) while horizontally scrolling */
   table.data .frozen-col { position:sticky; z-index:2; box-shadow:2px 0 0 0 var(--line); }
@@ -60,8 +60,8 @@
   .black-text { color:var(--red); font-weight:600; }
   .foot { text-align:center; color:var(--sub); font-size:12px; margin-top:24px; }
 
-  .remark-cell { position:relative; padding:6px 10px !important; }
-  .remark-input { width:220px; min-width:220px; border:1px solid transparent; border-radius:6px; padding:6px 8px; font-size:12.5px; font-family:inherit; color:var(--ink); background:transparent; white-space:normal; }
+  .remark-cell { position:relative; padding:6px 10px !important; white-space:normal; vertical-align:top; }
+  .remark-input { display:block; width:260px; min-width:260px; border:1px solid transparent; border-radius:6px; padding:6px 8px; font-size:12.5px; font-family:inherit; line-height:1.4; color:var(--ink); background:transparent; white-space:pre-wrap; word-break:break-word; overflow:hidden; resize:none; }
   .remark-input:hover { border-color:var(--line); background:var(--paper); }
   .remark-input:focus { outline:none; border-color:var(--gold); background:#fff; }
   .remark-status { font-size:10px; color:var(--sub); margin-left:6px; }
@@ -215,11 +215,22 @@ function render() {
     <td>${warnBadge(r['预警']||'')}</td>
     <td>${r['黑色预警'] ? '<span class="black-text">🚨'+r['黑色预警']+'</span>' : ''}</td>
     <td class="remark-cell">
-      <input class="remark-input" type="text" placeholder="添加备注..." data-sn="${escapeAttr(r['服务商单号'])}" value="${escapeAttr(r['Remark']||'')}">
+      <textarea class="remark-input" rows="1" placeholder="添加备注..." data-sn="${escapeAttr(r['服务商单号'])}">${escapeAttr(r['Remark']||'')}</textarea>
       <span class="remark-status"></span>
     </td>
   </tr>`).join('');
+  document.querySelectorAll('.remark-input').forEach(autoGrow);
 }
+
+function autoGrow(el) {
+  el.style.height = 'auto';
+  el.style.height = Math.max(el.scrollHeight, 30) + 'px';
+}
+
+document.getElementById('data-tbody').addEventListener('input', (e) => {
+  if (!e.target.classList || !e.target.classList.contains('remark-input')) return;
+  autoGrow(e.target);
+}, true);
 
 document.getElementById('data-tbody').addEventListener('blur', (e) => {
   if (!e.target.classList || !e.target.classList.contains('remark-input')) return;
