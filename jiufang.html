@@ -60,8 +60,8 @@
   .black-text { color:var(--red); font-weight:600; }
   .foot { text-align:center; color:var(--sub); font-size:12px; margin-top:24px; }
 
-  .remark-cell { position:relative; padding:6px 10px !important; white-space:normal; vertical-align:top; }
-  .remark-input { display:block; width:260px; min-width:260px; border:1px solid transparent; border-radius:6px; padding:6px 8px; font-size:12.5px; font-family:inherit; line-height:1.4; color:var(--ink); background:transparent; white-space:pre-wrap; word-break:break-word; overflow:hidden; resize:none; }
+  .remark-cell { position:relative; padding:6px 10px !important; }
+  .remark-input { width:220px; min-width:220px; border:1px solid transparent; border-radius:6px; padding:6px 8px; font-size:12.5px; font-family:inherit; color:var(--ink); background:transparent; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
   .remark-input:hover { border-color:var(--line); background:var(--paper); }
   .remark-input:focus { outline:none; border-color:var(--gold); background:#fff; }
   .remark-status { font-size:10px; color:var(--sub); margin-left:6px; }
@@ -215,21 +215,17 @@ function render() {
     <td>${warnBadge(r['预警']||'')}</td>
     <td>${r['黑色预警'] ? '<span class="black-text">🚨'+r['黑色预警']+'</span>' : ''}</td>
     <td class="remark-cell">
-      <textarea class="remark-input" rows="1" placeholder="添加备注..." data-sn="${escapeAttr(r['服务商单号'])}">${escapeAttr(r['Remark']||'')}</textarea>
+      <input class="remark-input" type="text" placeholder="添加备注..." title="${escapeAttr(r['Remark']||'')}" data-sn="${escapeAttr(r['服务商单号'])}" value="${escapeAttr(r['Remark']||'')}">
       <span class="remark-status"></span>
     </td>
   </tr>`).join('');
-  document.querySelectorAll('.remark-input').forEach(autoGrow);
 }
 
-function autoGrow(el) {
-  el.style.height = 'auto';
-  el.style.height = Math.max(el.scrollHeight, 30) + 'px';
-}
-
+// keep the hover tooltip (title attribute) in sync with whatever's currently
+// typed, so hovering always shows the full text even before it's saved
 document.getElementById('data-tbody').addEventListener('input', (e) => {
   if (!e.target.classList || !e.target.classList.contains('remark-input')) return;
-  autoGrow(e.target);
+  e.target.title = e.target.value;
 }, true);
 
 document.getElementById('data-tbody').addEventListener('blur', (e) => {
