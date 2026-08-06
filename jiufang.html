@@ -44,6 +44,15 @@
   table.data thead th:hover { color:var(--gold-light); }
   table.data tbody td { padding:10px 16px; border-bottom:1px solid #f0efea; color:var(--ink); background:var(--card); }
   table.data tbody tr:hover td { background:#faf7f1; }
+  /* freeze first 4 columns (运单号/国家/运输方式/物流渠道) while horizontally scrolling */
+  table.data .frozen-col { position:sticky; z-index:2; box-shadow:2px 0 0 0 var(--line); }
+  table.data thead th.frozen-col { background:var(--navy); z-index:4; }
+  table.data tbody td.frozen-col { background:var(--card); }
+  table.data tbody tr:hover td.frozen-col { background:#faf7f1; }
+  table.data .fc-0 { left:0; min-width:130px; }
+  table.data .fc-1 { left:130px; min-width:70px; }
+  table.data .fc-2 { left:200px; min-width:80px; }
+  table.data .fc-3 { left:280px; min-width:220px; }
 
   .badge { display:inline-block; padding:4px 12px; border-radius:3px; font-size:11.5px; font-weight:600; letter-spacing:.2px; }
   .badge-ok { background:#eaf3ee; color:var(--forest); } .badge-red { background:#f6e9e9; color:var(--red); }
@@ -56,7 +65,7 @@
 <div class="masthead">
   <div class="eyebrow">JIUFANG LOGISTICS · SEGMENT TIMELINESS</div>
   <h1>九方分环节时效监控</h1>
-  <div class="meta">数据更新时间：<b id="updated-at"></b> · 统计范围：下单60天内 · 独立数据源，不含捷德/万邑通/谷仓</div>
+  <div class="meta">数据更新时间：<b id="updated-at"></b> · 统计范围：下单60天内</div>
 </div>
 <div class="wrap">
   <div class="kpi-row">
@@ -79,10 +88,10 @@
     <div class="table-scroll">
       <table class="data" id="data-table">
         <thead><tr>
-          <th data-key="服务商单号">运单号</th>
-          <th data-key="国家">国家</th>
-          <th data-key="运输方式">运输方式</th>
-          <th data-key="物流渠道">物流渠道</th>
+          <th class="frozen-col fc-0" data-key="服务商单号">运单号</th>
+          <th class="frozen-col fc-1" data-key="国家">国家</th>
+          <th class="frozen-col fc-2" data-key="运输方式">运输方式</th>
+          <th class="frozen-col fc-3" data-key="物流渠道">物流渠道</th>
           <th data-key="下单时间">下单时间</th>
           <th data-key="工厂发货(入库)">工厂发货(入库)</th>
           <th data-key="航班起飞(离港)">航班起飞(离港)</th>
@@ -135,10 +144,10 @@ function render() {
 
   const tbody = document.getElementById('data-tbody');
   tbody.innerHTML = filtered.map(r => `<tr>
-    <td>${r['服务商单号']||''}</td>
-    <td>${r['国家']||''}</td>
-    <td>${r['运输方式']||''}</td>
-    <td>${r['物流渠道']||''}</td>
+    <td class="frozen-col fc-0">${r['服务商单号']||''}</td>
+    <td class="frozen-col fc-1">${r['国家']||''}</td>
+    <td class="frozen-col fc-2">${r['运输方式']||''}</td>
+    <td class="frozen-col fc-3">${r['物流渠道']||''}</td>
     <td>${r['下单时间']||''}</td>
     <td>${r['工厂发货(入库)']||''}</td>
     <td>${r['航班起飞(离港)']||''}</td>
