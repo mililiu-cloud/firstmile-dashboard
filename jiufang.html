@@ -37,6 +37,36 @@
   .filter-bar input { flex:1; min-width:200px; }
   .filter-bar select:focus, .filter-bar input:focus { outline:none; border-color:var(--gold); }
 
+  /* bulk export/import row - sits under the filters inside the same panel, so
+     it's visually obvious that 导出 follows whatever filters are set above */
+  .bulk-bar { display:flex; align-items:center; gap:12px; flex-wrap:wrap; margin-top:14px; padding-top:14px; border-top:1px solid var(--line); }
+  .btn { padding:8px 16px; border:1px solid var(--line); border-radius:8px; font-size:13px; font-family:inherit; background:var(--paper); color:var(--ink); cursor:pointer; white-space:nowrap; }
+  .btn:hover { border-color:var(--gold); color:var(--gold); }
+  .btn.primary { background:var(--navy); border-color:var(--navy); color:#f3ede2; }
+  .btn.primary:hover { background:var(--navy2); color:var(--gold-light); }
+  .btn:disabled { opacity:.5; cursor:not-allowed; }
+  .bulk-hint { font-size:12px; color:var(--sub); }
+  .bulk-status { font-size:12px; color:var(--sub); }
+  .bulk-status.saved { color:var(--forest); }
+  .bulk-status.error { color:var(--red); }
+
+  .import-modal { width:620px; }
+  .import-summary { display:grid; grid-template-columns:repeat(4,1fr); gap:1px; background:var(--line); border:1px solid var(--line); border-radius:10px; overflow:hidden; margin-bottom:16px; }
+  .import-summary div { background:var(--card); padding:12px 10px; text-align:center; }
+  .import-summary .n { font-size:22px; font-weight:700; font-family:"Songti SC","Noto Serif SC",serif; line-height:1.2; }
+  .import-summary .t { font-size:11px; color:var(--sub); letter-spacing:.5px; margin-top:4px; }
+  .import-summary .n.ok { color:var(--forest); } .import-summary .n.skip { color:var(--sub); }
+  .import-summary .n.miss { color:var(--red); } .import-summary .n.same { color:var(--amber); }
+  .import-preview { max-height:260px; overflow:auto; border:1px solid var(--line); border-radius:10px; }
+  .import-preview table { width:100%; border-collapse:collapse; font-size:12px; }
+  .import-preview th { position:sticky; top:0; background:var(--navy); color:rgba(243,237,226,.88); text-align:left; padding:8px 10px; font-size:10.5px; letter-spacing:.5px; text-transform:uppercase; font-weight:600; }
+  .import-preview td { padding:7px 10px; border-bottom:1px solid #f0efea; vertical-align:top; word-break:break-word; }
+  .import-preview td.old { color:var(--sub); }
+  .import-preview tr.miss td { color:var(--red); }
+  .import-progress { height:6px; background:var(--line); border-radius:4px; overflow:hidden; margin-top:14px; display:none; }
+  .import-progress.on { display:block; }
+  .import-progress > i { display:block; height:100%; width:0; background:var(--gold); transition:width .2s; }
+
   .table-card { background:var(--card); border-radius:14px; box-shadow:0 10px 28px -10px rgba(14,27,48,.10); border:1px solid var(--line); overflow:hidden; contain:layout paint; }
   .table-scroll { overflow:auto; max-height:680px; position:relative; }
   table.data { border-collapse:separate; border-spacing:0; width:100%; font-size:12.5px; white-space:nowrap; }
@@ -116,6 +146,13 @@
       <select id="f-warn"><option value="">全部预警状态</option><option value="到仓延迟">到仓延迟</option><option value="延迟抵达">延迟抵达</option><option value="无时效标准">无时效标准</option><option value="正常">正常</option><option value="起飞延迟">起飞延迟</option><option value="超时未达标">超时未达标</option></select>
       <input id="f-search" type="text" placeholder="搜索运单号/渠道...">
     </div>
+    <div class="bulk-bar">
+      <button class="btn" id="btn-export" type="button">⬇ 导出当前筛选 (<span id="export-count">0</span> 单)</button>
+      <button class="btn primary" id="btn-import" type="button">⬆ 导入更新备注</button>
+      <input id="import-file" type="file" accept=".csv,text/csv" style="display:none;">
+      <span class="bulk-hint">导出的 CSV 填好 Remark 列后直接上传，按运单号匹配，只更新 Remark，其他列忽略</span>
+      <span class="bulk-status" id="bulk-status"></span>
+    </div>
   </div>
 
   <div class="table-card">
@@ -158,6 +195,30 @@
       <span class="remark-modal-status" id="remark-modal-status"></span>
       <button id="remark-modal-cancel">取消</button>
       <button class="primary" id="remark-modal-save">保存</button>
+    </div>
+  </div>
+</div>
+
+<div class="remark-modal-backdrop" id="import-modal-backdrop">
+  <div class="remark-modal import-modal">
+    <div class="remark-modal-header">
+      <div class="label">批量导入备注</div>
+      <div class="sn" id="import-file-name"></div>
+    </div>
+    <div class="remark-modal-body">
+      <div class="import-summary">
+        <div><div class="n ok" id="imp-n-update">0</div><div class="t">将更新</div></div>
+        <div><div class="n same" id="imp-n-same">0</div><div class="t">内容未变</div></div>
+        <div><div class="n skip" id="imp-n-empty">0</div><div class="t">备注为空(跳过)</div></div>
+        <div><div class="n miss" id="imp-n-miss">0</div><div class="t">运单号未匹配</div></div>
+      </div>
+      <div class="import-preview" id="import-preview"></div>
+      <div class="import-progress" id="import-progress"><i></i></div>
+    </div>
+    <div class="remark-modal-footer">
+      <span class="remark-modal-status" id="import-status"></span>
+      <button id="import-cancel">取消</button>
+      <button class="primary" id="import-confirm">确认更新</button>
     </div>
   </div>
 </div>
@@ -238,6 +299,9 @@ document.getElementById('f-date-reset').addEventListener('click', () => {
 });
 
 let sortKey = null, sortDir = 1;
+// last rendered (filtered+sorted) row set - what 导出 writes out, so the CSV
+// always matches exactly what's on screen
+let currentFiltered = [];
 function render() {
   const country = document.getElementById('f-country').value;
   const transport = document.getElementById('f-transport').value;
@@ -272,6 +336,9 @@ function render() {
       return String(va).localeCompare(String(vb)) * sortDir;
     });
   }
+
+  currentFiltered = filtered;
+  document.getElementById('export-count').textContent = filtered.length;
 
   const tbody = document.getElementById('data-tbody');
   tbody.innerHTML = filtered.map(r => `<tr>
@@ -357,6 +424,248 @@ document.getElementById('remark-modal-save').addEventListener('click', () => {
     if (inlineInput) { inlineInput.value = value; inlineInput.title = value; }
     setTimeout(closeRemarkModal, 400);
   });
+});
+
+/* ---------------- 批量导出 / 导入备注 ----------------
+   导出：把当前筛选(+排序)结果写成 CSV，UTF-8 BOM 开头，Excel / 飞书表格双击直开。
+   导入：只认两列 —— 运单号 和 Remark；按运单号匹配本页数据，Remark 为空的行跳过，
+   内容没变的行也不重复提交，未匹配的运单号只提示不写入。 */
+const EXPORT_COLS = [
+  ['运单号', '服务商单号'], ['国家', '国家'], ['运输方式', '运输方式'], ['物流渠道', '物流渠道'],
+  ['下单时间', '下单时间'], ['工厂发货(入库)', '工厂发货(入库)'], ['航班起飞(离港)', '航班起飞(离港)'],
+  ['航班抵达(到港)', '航班抵达(到港)'], ['清关时间(清关放行)', '清关时间(清关放行)'],
+  ['到仓时间(签收)', '到仓时间(签收)'], ['服务商时效', '服务商时效'], ['预警', '预警'],
+  ['黑色预警', '黑色预警'], ['Remark', 'Remark'],
+];
+const MAX_REMARK_LEN = 500;
+
+function csvCell(v) {
+  const s = String(v ?? '');
+  return /[",\r\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
+}
+
+document.getElementById('btn-export').addEventListener('click', () => {
+  const lines = [EXPORT_COLS.map(c => csvCell(c[0])).join(',')];
+  currentFiltered.forEach(r => {
+    lines.push(EXPORT_COLS.map(c => csvCell(r[c[1]] ?? '')).join(','));
+  });
+  // \ufeff = BOM, without it Excel on Windows reads the Chinese headers as garbage
+  const blob = new Blob(['\ufeff' + lines.join('\r\n')], { type: 'text/csv;charset=utf-8;' });
+  const stamp = new Date().toISOString().slice(0,10);
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `九方分环节时效_备注_${stamp}_${currentFiltered.length}单.csv`;
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  URL.revokeObjectURL(a.href);
+  setBulkStatus(`已导出 ${currentFiltered.length} 单`, 'saved');
+});
+
+function setBulkStatus(msg, cls) {
+  const el = document.getElementById('bulk-status');
+  el.textContent = msg;
+  el.className = 'bulk-status' + (cls ? ' ' + cls : '');
+  if (cls === 'saved') setTimeout(() => { if (el.textContent === msg) el.textContent = ''; }, 4000);
+}
+
+// minimal RFC4180 parser - handles quoted fields containing , " and newlines,
+// which matters because remarks are free text people paste multi-line notes into
+function parseCsv(text) {
+  if (text.charCodeAt(0) === 0xFEFF) text = text.slice(1);
+  const rows = [];
+  let row = [], field = '', inQuotes = false;
+  for (let i = 0; i < text.length; i++) {
+    const ch = text[i];
+    if (inQuotes) {
+      if (ch === '"') {
+        if (text[i+1] === '"') { field += '"'; i++; } else inQuotes = false;
+      } else if (ch === '\r' && text[i+1] === '\n') {
+        // CRLF inside a quoted (multi-line) remark -> keep it as a plain \n,
+        // otherwise the stray \r ends up written into the Feishu cell
+      } else field += ch;
+    } else if (ch === '"') {
+      inQuotes = true;
+    } else if (ch === ',') {
+      row.push(field); field = '';
+    } else if (ch === '\r') {
+      // swallow, handled by the \n branch
+    } else if (ch === '\n') {
+      row.push(field); field = ''; rows.push(row); row = [];
+    } else field += ch;
+  }
+  if (field !== '' || row.length) { row.push(field); rows.push(row); }
+  return rows.filter(r => r.some(c => String(c).trim() !== ''));
+}
+
+// Excel can mangle the 3-ish all-digit 运单号 (drops leading zeros / reformats),
+// so keep a loosened index as a fallback before declaring a row unmatched
+const snLoose = {};
+function looseKey(s) { return String(s ?? '').trim().toUpperCase().replace(/[^0-9A-Z]/g, '').replace(/^0+/, ''); }
+Object.keys(rowsBySn).forEach(sn => { snLoose[looseKey(sn)] = sn; });
+function resolveSn(raw) {
+  let s = String(raw ?? '').trim().replace(/^['=]+/, '').replace(/^"|"$/g, '').trim();
+  if (rowsBySn[s]) return s;
+  const lk = looseKey(s);
+  return (lk && snLoose[lk]) ? snLoose[lk] : null;
+}
+
+const importBackdrop = document.getElementById('import-modal-backdrop');
+const importStatus = document.getElementById('import-status');
+const importProgress = document.getElementById('import-progress');
+let pendingChanges = [];
+
+document.getElementById('btn-import').addEventListener('click', () => document.getElementById('import-file').click());
+
+document.getElementById('import-file').addEventListener('change', (e) => {
+  const file = e.target.files && e.target.files[0];
+  e.target.value = '';  // allow re-picking the same file after a fix
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = () => {
+    try { analyzeImport(file.name, parseCsv(String(reader.result))); }
+    catch (err) { setBulkStatus('解析失败：' + err.message, 'error'); }
+  };
+  reader.onerror = () => setBulkStatus('读取文件失败', 'error');
+  reader.readAsText(file, 'UTF-8');
+});
+
+function analyzeImport(fileName, table) {
+  if (!table.length) { setBulkStatus('文件是空的', 'error'); return; }
+  const header = table[0].map(h => String(h || '').trim());
+  const snIdx = header.findIndex(h => h === '运单号' || h === '服务商单号' || h.toUpperCase() === 'SN' || h.includes('运单'));
+  const rmIdx = header.findIndex(h => h.toUpperCase() === 'REMARK' || h.includes('备注'));
+  if (snIdx < 0 || rmIdx < 0) {
+    setBulkStatus('表头里必须同时有「运单号」和「Remark」两列（当前：' + header.join(' / ') + '）', 'error');
+    return;
+  }
+
+  const changes = [], missing = [];
+  let same = 0, empty = 0, truncated = 0;
+  const seen = new Set();
+  for (let i = 1; i < table.length; i++) {
+    const rawSn = table[i][snIdx];
+    if (!String(rawSn ?? '').trim()) continue;
+    let remark = String(table[i][rmIdx] ?? '').trim();
+    const sn = resolveSn(rawSn);
+    if (!sn) { missing.push(String(rawSn).trim()); continue; }
+    if (!remark) { empty++; continue; }                      // 空值跳过，不清空原备注
+    if (seen.has(sn)) continue;                                // 同一单号重复行只取第一条
+    seen.add(sn);
+    if (remark.length > MAX_REMARK_LEN) { remark = remark.slice(0, MAX_REMARK_LEN); truncated++; }
+    const old = (rowsBySn[sn] && rowsBySn[sn]['Remark']) || '';
+    if (old === remark) { same++; continue; }
+    changes.push({ sn, remark, old });
+  }
+
+  pendingChanges = changes;
+  document.getElementById('import-file-name').textContent = fileName;
+  document.getElementById('imp-n-update').textContent = changes.length;
+  document.getElementById('imp-n-same').textContent = same;
+  document.getElementById('imp-n-empty').textContent = empty;
+  document.getElementById('imp-n-miss').textContent = missing.length;
+
+  const previewRows = changes.slice(0, 50).map(c => `<tr>
+      <td>${escapeHtml(c.sn)}</td>
+      <td class="old">${escapeHtml(c.old || '（空）')}</td>
+      <td>${escapeHtml(c.remark)}</td>
+    </tr>`).join('')
+    + missing.slice(0, 20).map(sn => `<tr class="miss">
+      <td>${escapeHtml(sn)}</td><td colspan="2">未匹配到该运单号，已忽略</td>
+    </tr>`).join('');
+  document.getElementById('import-preview').innerHTML = previewRows
+    ? `<table><thead><tr><th>运单号</th><th>原备注</th><th>新备注</th></tr></thead><tbody>${previewRows}</tbody></table>`
+    : '<div style="padding:16px;font-size:12.5px;color:var(--sub);">没有需要更新的行。</div>';
+
+  importStatus.textContent = truncated ? `${truncated} 条超过 ${MAX_REMARK_LEN} 字，已截断` : '';
+  importStatus.className = 'remark-modal-status' + (truncated ? ' error' : '');
+  importProgress.className = 'import-progress';
+  importProgress.querySelector('i').style.width = '0';
+  document.getElementById('import-confirm').disabled = changes.length === 0;
+  document.getElementById('import-confirm').textContent = changes.length ? `确认更新 ${changes.length} 单` : '无可更新';
+  importBackdrop.classList.add('open');
+}
+
+function escapeHtml(s) {
+  return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+function closeImportModal() { importBackdrop.classList.remove('open'); }
+document.getElementById('import-cancel').addEventListener('click', closeImportModal);
+importBackdrop.addEventListener('click', (e) => { if (e.target === importBackdrop) closeImportModal(); });
+
+// Two write paths: the relay's /remarks/bulk (one sheet read + one batch write,
+// fast) if it's deployed, otherwise fall back to firing the existing per-row
+// /remarks POST with a small concurrency cap. The page works either way, so the
+// Aliyun function can be redeployed whenever convenient.
+async function bulkWrite(changes, onProgress) {
+  try {
+    const resp = await fetch(WORKER_URL + '/remarks/bulk', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ items: changes.map(c => ({ sn: c.sn, remark: c.remark })) }),
+    });
+    if (resp.ok) {
+      const res = await resp.json();
+      if (res && res.ok) {
+        onProgress(changes.length, changes.length);
+        const failed = new Set(res.notFound || []);
+        return { ok: changes.filter(c => !failed.has(c.sn)), failed: [...failed] };
+      }
+    }
+  } catch (err) { /* bulk endpoint not deployed yet - fall through */ }
+
+  const ok = [], failed = [];
+  let done = 0;
+  const queue = changes.slice();
+  async function worker() {
+    while (queue.length) {
+      const c = queue.shift();
+      try {
+        const r = await fetch(WORKER_URL + '/remarks', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ sn: c.sn, remark: c.remark }),
+        }).then(r => r.json());
+        (r && r.ok) ? ok.push(c) : failed.push(c.sn);
+      } catch (e) { failed.push(c.sn); }
+      onProgress(++done, changes.length);
+    }
+  }
+  await Promise.all([worker(), worker(), worker()]);
+  return { ok, failed };
+}
+
+document.getElementById('import-confirm').addEventListener('click', async () => {
+  if (!pendingChanges.length) return;
+  if (!WORKER_URL) { importStatus.textContent = '未配置云端保存'; importStatus.className = 'remark-modal-status error'; return; }
+  const btn = document.getElementById('import-confirm');
+  btn.disabled = true;
+  document.getElementById('import-cancel').disabled = true;
+  importProgress.className = 'import-progress on';
+  const bar = importProgress.querySelector('i');
+
+  const res = await bulkWrite(pendingChanges, (done, total) => {
+    bar.style.width = Math.round(done / total * 100) + '%';
+    importStatus.textContent = `写入中 ${done}/${total}...`;
+    importStatus.className = 'remark-modal-status';
+  });
+
+  res.ok.forEach(c => { if (rowsBySn[c.sn]) rowsBySn[c.sn]['Remark'] = c.remark; });
+  render();
+  document.getElementById('import-cancel').disabled = false;
+  if (res.failed.length) {
+    importStatus.textContent = `成功 ${res.ok.length} 单，失败 ${res.failed.length} 单：${res.failed.slice(0,5).join(', ')}`;
+    importStatus.className = 'remark-modal-status error';
+    btn.disabled = false;
+    setBulkStatus(`导入完成：成功 ${res.ok.length}，失败 ${res.failed.length}`, 'error');
+  } else {
+    importStatus.textContent = `全部写入成功（${res.ok.length} 单）`;
+    importStatus.className = 'remark-modal-status saved';
+    setBulkStatus(`已批量更新 ${res.ok.length} 单备注`, 'saved');
+    setTimeout(closeImportModal, 900);
+  }
+  pendingChanges = [];
+});
+
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape' && importBackdrop.classList.contains('open')) closeImportModal();
 });
 
 document.querySelectorAll('#data-table thead th').forEach(th => {
