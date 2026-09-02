@@ -521,12 +521,27 @@ document.getElementById('import-file').addEventListener('change', (e) => {
   if (!file) return;
   const reader = new FileReader();
   reader.onload = () => {
-    try { analyzeImport(file.name, parseCsv(String(reader.result))); }
+    try { analyzeImport(file.name, parseCsv(decodeCsvBytes(reader.result))); }
     catch (err) { setBulkStatus('解析失败：' + err.message, 'error'); }
   };
   reader.onerror = () => setBulkStatus('读取文件失败', 'error');
-  reader.readAsText(file, 'UTF-8');
+  // read raw bytes, not readAsText(file,'UTF-8') - see decodeCsvBytes below
+  reader.readAsArrayBuffer(file);
 });
+
+// Excel (中文 Windows / Mac 的「CSV UTF-8」以外的另存为) writes GBK/GB18030, not
+// UTF-8. Forcing a UTF-8 read on such a file leaves the ASCII "Remark" header
+// intact but turns 运单号 into replacement chars, so the header check in
+// analyzeImport rejects the whole upload ("当前：�`��� / Remark"). Sniff instead:
+// strict UTF-8 decode first (fatal:true throws on invalid byte sequences), fall
+// back to GB18030 (a superset of GBK) when it does.
+function decodeCsvBytes(buf) {
+  const bytes = new Uint8Array(buf);
+  let text;
+  try { text = new TextDecoder('utf-8', { fatal: true }).decode(bytes); }
+  catch (err) { text = new TextDecoder('gb18030').decode(bytes); }
+  return text.replace(/^\ufeff/, '');  // BOM from our own export
+}
 
 function analyzeImport(fileName, table) {
   if (!table.length) { setBulkStatus('文件是空的', 'error'); return; }
